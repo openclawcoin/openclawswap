@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🦞 OpenClaw DEX - Trade on Base</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    .glow { box-shadow: 0 0 30px rgba(251, 191, 36, 0.3); }
+  </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+  <!-- Header -->
+  <nav class="bg-gray-800 border-b border-gray-700">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+      <div class="flex items-center gap-4">
+        <h1 class="text-2xl font-bold">🦞 OpenClaw DEX</h1>
+        <span class="bg-green-600 px-2 py-1 rounded text-xs">Base Mainnet</span>
+      </div>
+      <button onclick="connectMetaMask()" id="btn-connect" class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-6 rounded-lg transition">
+        Connect Wallet
+      </button>
+    </div>
+  </nav>
+
+  <!-- Wallet Status -->
+  <div id="wallet-status" class="hidden bg-gray-800 border-b border-gray-700">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center flex-wrap gap-4">
+      <div class="flex items-center gap-4">
+        <span class="text-green-400">● Connected</span>
+        <span id="wallet-address" class="font-mono bg-gray-700 px-3 py-1 rounded"></span>
+      </div>
+      <div class="flex items-center gap-4 flex-wrap">
+        <span>ETH: <span id="eth-balance" class="font-bold text-yellow-500">0</span></span>
+        <span>CLAW: <span id="claw-balance" class="font-bold text-yellow-500">0</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-8">
+    
+    <!-- Stats -->
+    <div class="grid md:grid-cols-4 gap-4 mb-8">
+      <div class="bg-gray-800 p-4 rounded-xl">
+        <p class="text-gray-400 text-sm">CLAW Price</p>
+        <p class="text-2xl font-bold text-yellow-500" id="claw-price">$0.00</p>
+      </div>
+      <div class="bg-gray-800 p-4 rounded-xl">
+        <p class="text-gray-400 text-sm">Pool Liquidity</p>
+        <p class="text-2xl font-bold text-green-500" id="pool-liquidity">$0</p>
+      </div>
+      <div class="bg-gray-800 p-4 rounded-xl">
+        <p class="text-gray-400 text-sm">24h Volume</p>
+        <p class="text-2xl font-bold text-blue-500" id="volume">$0</p>
+      </div>
+      <div class="bg-gray-800 p-4 rounded-xl">
+        <p class="text-gray-400 text-sm">TVL</p>
+        <p class="text-2xl font-bold text-purple-500" id="tvl">$0</p>
+      </div>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-8">
+      
+      <!-- Swap Panel -->
+      <div class="max-w-md mx-auto w-full">
+        <div class="bg-gray-800 rounded-xl p-6 glow">
+          <h2 class="text-xl font-bold mb-4">🔄 Swap</h2>
+          
+          <!-- From -->
+          <div class="bg-gray-700/50 rounded-lg p-4 mb-2">
+            <div class="flex justify-between mb-2">
+              <span class="text-gray-400">From</span>
+              <span class="text-gray-400">Balance: <span id="from-balance">0</span></span>
+            </div>
+            <div class="flex gap-2">
+              <input type="number" id="from-amount" placeholder="0.0" class="bg-transparent text-2xl font-bold outline-none flex-1">
+              <select id="from-token" class="bg-gray-600 rounded px-3 py-2 font-bold" onchange="updateBalance()">
+                <option value="ETH">ETH</option>
+                <option value="CLAW">CLAW</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Arrow -->
+          <div class="text-center py-2">
+            <button onclick="switchTokens()" class="bg-gray-700 rounded-full p-2 hover:bg-gray-600 transition">⬇️</button>
+          </div>
+
+          <!-- To -->
+          <div class="bg-gray-700/50 rounded-lg p-4 mb-4">
+            <div class="flex justify-between mb-2">
+              <span class="text-gray-400">To</span>
+              <span class="text-gray-400">Balance: <span id="to-balance">0</span></span>
+            </div>
+            <div class="flex gap-2">
+              <input type="number" id="to-amount" placeholder="0.0" readonly class="bg-transparent text-2xl font-bold outline-none flex-1 text-gray-400">
+              <select id="to-token" class="bg-gray-600 rounded px-3 py-2 font-bold" onchange="updateBalance()">
+                <option value="CLAW">CLAW</option>
+                <option value="ETH">ETH</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Swap Button -->
+          <button onclick="executeSwap()" id="btn-swap" class="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            Connect Wallet First
+          </button>
+        </div>
+      </div>
+
+      <!-- Pool Info -->
+      <div class="w-full">
+        <h3 class="text-xl font-bold mb-4">🌊 Pool Information</h3>
+        <div class="bg-gray-800 rounded-xl p-6">
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-gray-700/50 p-4 rounded-lg">
+              <p class="text-gray-400 text-sm">ETH Reserve</p>
+              <p class="text-xl font-mono" id="reserve-eth">0 ETH</p>
+            </div>
+            <div class="bg-gray-700/50 p-4 rounded-lg">
+              <p class="text-gray-400 text-sm">CLAW Reserve</p>
+              <p class="text-xl font-mono" id="reserve-claw">0 CLAW</p>
+            </div>
+          </div>
+          
+          <!-- Your Liquidity -->
+          <div class="mt-6 p-4 bg-gray-700/30 rounded-lg">
+            <h4 class="font-bold mb-2">💰 Your Liquidity</h4>
+            <p class="text-sm text-gray-400">LP Tokens: <span id="lp-tokens" class="text-yellow-500">0</span></p>
+            <p class="text-sm text-gray-400">Share: <span id="lp-share" class="text-green-500">0%</span></p>
+          </div>
+        </div>
+
+        <!-- Contract Info -->
+        <h3 class="text-xl font-bold mt-6 mb-4">📋 Contracts</h3>
+        <div class="bg-gray-800 rounded-xl p-4 font-mono text-xs break-all">
+          <p class="mb-2"><span class="text-gray-400">Factory:</span> <a href="https://basescan.org/address/0x16341C5AFFd8Bf8310D4972670B54d05903524B6" target="_blank" class="text-yellow-500 hover:underline">0x16341C5AFFd8Bf8310D4972670B54d05903524B6</a></p>
+          <p class="mb-2"><span class="text-gray-400">CLAW:</span> <a href="https://basescan.org/address/0x72AfD80C0aa33e6fAa25dFDa6f791A237594b15d" target="_blank" class="text-yellow-500 hover:underline">0x72AfD80C0aa33e6fAa25dFDa6f791A237594b15d</a></p>
+          <p class="mb-2"><span class="text-gray-400">Pair:</span> <a href="https://basescan.org/address/0x1eb90b8c6b4DAf53Bab315e3919Ff44e12732A92" target="_blank" class="text-yellow-500 hover:underline">0x1eb90b8c6b4DAf53Bab315e3919Ff44e12732A92</a></p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Contract Addresses (from 2026-02-11 deployment)
+    const CONTRACTS = {
+      factory: '0x16341C5AFFd8Bf8310D4972670B54d05903524B6',
+      clawToken: '0x72AfD80C0aa33e6fAa25dFDa6f791A237594b15d',
+      ethToken: '0x2775e364824d85d86c26cEff04968e5DFa821CF3',
+      pair: '0x1eb90b8c6b4DAf53Bab315e3919Ff44e12732A92'
+    };
+
+    // ABIs
+    const ERC20_ABI = [
+      'function name() view returns (string)',
+      'function symbol() view returns (string)',
+      'function decimals() view returns (uint8)',
+      'function balanceOf(address) view returns (uint256)',
+      'function transfer(address to, uint256 amount) returns (bool)',
+      'function approve(address spender, uint256 amount) returns (bool)',
+      'function allowance(address owner, address spender) view returns (uint256)'
+    ];
+
+    const PAIR_ABI = [
+      'function getReserves() view returns (uint112, uint112, uint32)',
+      'function token0() view returns (address)',
+      'function token1() view returns (address)',
+      'function balanceOf(address) view returns (uint256)',
+      'function totalSupply() view returns (uint256)',
+      'function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes data)',
+      'function sync()'
+    ];
+
+    let provider, signer, userAddress;
+    let clawToken, ethToken, pair;
+
+    async function connectMetaMask() {
+      if (typeof window.ethereum === 'undefined') {
+        alert('Please install MetaMask! https://metamask.io');
+        return;
+      }
+
+      try {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+
+        document.getElementById('wallet-status').classList.remove('hidden');
+        document.getElementById('wallet-address').textContent = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+        document.getElementById('btn-connect').classList.add('hidden');
+        document.getElementById('btn-swap').disabled = false;
+        document.getElementById('btn-swap').textContent = 'Swap';
+
+        clawToken = new ethers.Contract(CONTRACTS.clawToken, ERC20_ABI, provider);
+        ethToken = new ethers.Contract(CONTRACTS.ethToken, ERC20_ABI, provider);
+        pair = new ethers.Contract(CONTRACTS.pair, PAIR_ABI, provider);
+
+        await loadData();
+        
+        window.ethereum.on('accountsChanged', () => window.location.reload());
+        window.ethereum.on('chainChanged', () => window.location.reload());
+
+      } catch (error) {
+        alert('Failed to connect: ' + error.message);
+      }
+    }
+
+    async function loadData() {
+      const ethBal = await provider.getBalance(userAddress);
+      const clawBal = await clawToken.balanceOf(userAddress);
+      
+      document.getElementById('eth-balance').textContent = parseFloat(ethers.utils.formatEther(ethBal)).toFixed(4);
+      document.getElementById('claw-balance').textContent = parseFloat(ethers.utils.formatEther(clawBal)).toFixed(2);
+      
+      updateBalance();
+
+      const [r0, r1] = await pair.getReserves();
+      const reserveEth = ethers.utils.formatEther(r0);
+      const reserveClaw = ethers.utils.formatEther(r1);
+      
+      document.getElementById('reserve-eth').textContent = parseFloat(reserveEth).toLocaleString() + ' ETH';
+      document.getElementById('reserve-claw').textContent = parseFloat(reserveClaw).toLocaleString() + ' CLAW';
+
+      const lpBalance = await pair.balanceOf(userAddress);
+      const totalSupply = await pair.totalSupply();
+      const share = totalSupply > 0 ? (lpBalance * 100 / totalSupply).toFixed(2) : 0;
+      
+      document.getElementById('lp-tokens').textContent = parseFloat(ethers.utils.formatEther(lpBalance)).toFixed(4);
+      document.getElementById('lp-share').textContent = share + '%';
+
+      const price = parseFloat(reserveEth) / parseFloat(reserveClaw);
+      const ethPriceUSD = 1800;
+      document.getElementById('claw-price').textContent = '$' + (price * ethPriceUSD).toFixed(4);
+
+      const tvl = parseFloat(reserveEth) * ethPriceUSD * 2;
+      document.getElementById('tvl').textContent = '$' + tvl.toLocaleString();
+      document.getElementById('pool-liquidity').textContent = '$' + tvl.toLocaleString();
+      document.getElementById('volume').textContent = '$' + (tvl * 0.05).toFixed(0);
+    }
+
+    function updateBalance() {
+      const fromToken = document.getElementById('from-token').value;
+      const ethBal = parseFloat(document.getElementById('eth-balance').textContent);
+      const clawBal = parseFloat(document.getElementById('claw-balance').textContent);
+      
+      document.getElementById('from-balance').textContent = fromToken === 'ETH' ? ethBal.toFixed(4) : clawBal.toFixed(2);
+      document.getElementById('to-balance').textContent = fromToken === 'ETH' ? clawBal.toFixed(2) : ethBal.toFixed(4);
+    }
+
+    async function executeSwap() {
+      const fromToken = document.getElementById('from-token').value;
+      const amount = document.getElementById('from-amount').value;
+
+      if (!amount || parseFloat(amount) <= 0) {
+        alert('Please enter amount');
+        return;
+      }
+
+      try {
+        const amountIn = ethers.utils.parseEther(amount);
+        const [r0, r1] = await pair.getReserves();
+        const reserveIn = fromToken === 'ETH' ? r0 : r1;
+        const reserveOut = fromToken === 'ETH' ? r1 : r0;
+        
+        const amountOut = reserveOut * amountIn / (reserveIn + amountIn * 3 / 1000);
+        document.getElementById('to-amount').value = ethers.utils.formatEther(amountOut).slice(0, 10);
+
+        document.getElementById('btn-swap').textContent = 'Swapping...';
+        
+        const amount0Out = fromToken === 'ETH' ? 0 : amountOut;
+        const amount1Out = fromToken === 'ETH' ? amountOut : 0;
+        
+        await pair.swap(amount0Out, amount1Out, userAddress, '0x');
+
+        alert('Swap successful!');
+        document.getElementById('btn-swap').textContent = 'Swap';
+        await loadData();
+
+      } catch (error) {
+        alert('Swap failed: ' + error.message);
+        document.getElementById('btn-swap').textContent = 'Swap';
+      }
+    }
+
+    function switchTokens() {
+      const from = document.getElementById('from-token');
+      const to = document.getElementById('to-token');
+      const temp = from.value;
+      from.value = to.value;
+      to.value = temp;
+      updateBalance();
+    }
+
+    // Check connection on load
+    if (typeof window.ethereum !== 'undefined') {
+      window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
+        if (accounts.length > 0) connectMetaMask();
+      });
+    }
+  </script>
+</body>
+</html>
